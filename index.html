@@ -105,7 +105,7 @@
 
     // 获取数据并渲染
     async function fetchStudents() {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseClient
         .from('students')
         .select('*')
         .order(currentSortField, { ascending: isAscending });
@@ -156,7 +156,7 @@
 
       if (!student_id || !name) return alert('请填入学号和姓名！');
 
-      const { error } = await supabase
+      const { error } = await supabaseClient
         .from('students')
         .insert([{ student_id, name, score: 0 }]);
 
@@ -172,7 +172,7 @@
     // 更新积分（支持加分和减分，允许负数）
     async function updateScore(id, currentScore, change) {
       const newScore = currentScore + change;
-      const { error } = await supabase
+      const { error } = await supabaseClient
         .from('students')
         .update({ score: newScore })
         .eq('id', id);
@@ -193,7 +193,7 @@
     // 删除学生
     async function deleteStudent(id) {
       if (!confirm('确定删除该学生吗？')) return;
-      const { error } = await supabase.from('students').delete().eq('id', id);
+      const { error } = await supabaseClient.from('students').delete().eq('id', id);
       if (error) alert('删除失败: ' + error.message);
       else fetchStudents();
     }
