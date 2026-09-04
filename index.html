@@ -85,7 +85,7 @@
     // ⚠️ 请填入你的 Supabase 配置
     const SUPABASE_URL = 'https://kcuvmcuseqyjzltusyuc.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjdXZtY3VzZXF5anpsdHVzeXVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1MTg2MTUsImV4cCI6MjEwNDA5NDYxNX0.MxDUG8DFquygFOZr1QE8n7o3rCTj9K4Ev5-3qdboSD0';
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let currentSortField = 'student_id'; // 默认按学号排序
     let isAscending = true;             // 排序方向
