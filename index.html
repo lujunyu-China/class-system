@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>课堂积分加分系统</title>
+  <title>多教师课堂积分管理系统</title>
+  <!-- 引入 Supabase JS SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
@@ -17,11 +18,24 @@
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg-color); padding: 20px; }
-    .container { max-width: 900px; margin: 0 auto; background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+    .container { max-width: 950px; margin: 0 auto; }
     
-    h1 { font-size: 1.5rem; margin-bottom: 20px; text-align: center; }
-    
+    /* 登录/注册卡片样式 */
+    .auth-card { max-width: 400px; margin: 80px auto; background: var(--card-bg); padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
+    .auth-card h2 { margin-bottom: 20px; font-size: 1.4rem; color: #1e293b; }
+    .auth-card input { width: 100%; margin-bottom: 12px; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.95rem; }
+    .auth-card button { width: 100%; padding: 10px; margin-top: 6px; background: var(--primary); color: white; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; }
+    .auth-toggle { margin-top: 15px; font-size: 0.9rem; color: var(--secondary); cursor: pointer; text-decoration: underline; }
+
+    /* 顶部教师信息栏 */
+    .app-header { display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); padding: 15px 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .user-info { font-size: 0.95rem; color: #334155; }
+
+    /* 主管理卡片 */
+    .main-card { background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+    .main-card h1 { font-size: 1.5rem; margin-bottom: 15px; color: #0f172a; }
     .form-card { display: flex; gap: 10px; margin-bottom: 20px; background: #f1f5f9; padding: 15px; border-radius: 8px; flex-wrap: wrap; }
+    
     input { padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; flex: 1; min-width: 120px; }
     
     button { padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; background: var(--primary); color: white; font-weight: 500; }
@@ -32,7 +46,7 @@
     
     table { width: 100%; border-collapse: collapse; text-align: left; }
     th, td { padding: 12px; border-bottom: 1px solid var(--border-color); }
-    th { background: #f8fafc; }
+    th { background: #f8fafc; color: #475569; }
     
     .score-badge { font-weight: bold; font-size: 1.1rem; }
     .score-positive { color: #16a34a; }
@@ -42,78 +56,166 @@
     .btn-sm { padding: 4px 8px; font-size: 0.8rem; }
     .btn-add { background: #16a34a; }
     .btn-sub { background: #dc2626; }
+    
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
 
   <div class="container">
-    <h1>🏆 课堂积分加分系统</h1>
-
-    <!-- 1. 添加学生（初始积分默认 0） -->
-    <div class="form-card">
-      <input type="text" id="student_id" placeholder="学号 (如: 01)">
-      <input type="text" id="name" placeholder="学生姓名">
-      <button onclick="addStudent()">添加学生</button>
+    <!-- 1. 账号登录 / 注册界面 -->
+    <div id="auth-section" class="auth-card">
+      <h2 id="auth-title">教师账号登录</h2>
+      <input type="email" id="auth-email" placeholder="请输入教师邮箱">
+      <input type="password" id="auth-password" placeholder="请输入密码 (至少6位)">
+      <button id="auth-btn" onclick="handleAuth()">登 录</button>
+      <div class="auth-toggle" onclick="toggleAuthMode()" id="auth-toggle-text">没有账号？点击注册新教师账号</div>
     </div>
 
-    <!-- 2. 排序控制栏 -->
-    <div class="filter-bar">
-      <div>
-        <strong>排序方式：</strong>
-        <button class="btn-secondary btn-sm" onclick="changeSort('student_id')">按学号排序</button>
-        <button class="btn-secondary btn-sm" onclick="changeSort('score')">按积分排序</button>
+    <!-- 2. 积分管理主界面 (仅登录后显示) -->
+    <div id="app-section" class="hidden">
+      <div class="app-header">
+        <div class="user-info">👨‍🏫 登录教师: <strong id="current-user-email">--</strong></div>
+        <button class="btn-secondary btn-sm" onclick="handleLogout()">退出登录</button>
+      </div>
+
+      <div class="main-card">
+        <h1>🏆 课堂积分管理系统</h1>
+
+        <!-- 添加学生 -->
+        <div class="form-card">
+          <input type="text" id="student_id" placeholder="学号 (如: 01)">
+          <input type="text" id="name" placeholder="学生姓名">
+          <button onclick="addStudent()">添加学生</button>
+        </div>
+
+        <!-- 排序控制 -->
+        <div class="filter-bar">
+          <div>
+            <strong>排序方式：</strong>
+            <button class="btn-secondary btn-sm" onclick="changeSort('student_id')">按学号排序</button>
+            <button class="btn-secondary btn-sm" onclick="changeSort('score')">按积分排序</button>
+          </div>
+        </div>
+
+        <!-- 学生列表数据表 -->
+        <table>
+          <thead>
+            <tr>
+              <th>学号</th>
+              <th>姓名</th>
+              <th>当前积分</th>
+              <th>快捷扣分 / 加分</th>
+              <th>自定义增减</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="student-table-body"></tbody>
+        </table>
       </div>
     </div>
-
-    <!-- 3. 学生积分列表 -->
-    <table>
-      <thead>
-        <tr>
-          <th>学号</th>
-          <th>姓名</th>
-          <th>当前积分</th>
-          <th>快捷扣分 / 加分</th>
-          <th>自定义增减</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody id="student-table-body"></tbody>
-    </table>
   </div>
 
   <script>
-    // ⚠️ 请填入你的 Supabase 配置
     const SUPABASE_URL = 'https://kcuvmcuseqyjzltusyuc.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjdXZtY3VzZXF5anpsdHVzeXVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1MTg2MTUsImV4cCI6MjEwNDA5NDYxNX0.MxDUG8DFquygFOZr1QE8n7o3rCTj9K4Ev5-3qdboSD0';
+    
+    // 初始化 Supabase 客户端（使用 supabaseClient 避免变量名冲突）
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    let currentSortField = 'student_id'; // 默认按学号排序
-    let isAscending = true;             // 排序方向
+    let currentTeacher = null;
+    let isSignUpMode = false;
+    let currentSortField = 'student_id';
+    let isAscending = true;
 
-    window.onload = fetchStudents;
+    // 页面加载时自动检查登录状态
+    window.onload = async () => {
+      const { data: { user } } = await supabaseClient.auth.getUser();
+      if (user) {
+        onUserLoggedIn(user);
+      }
+    };
 
-    // 切换排序方式
+    // 切换登录/注册表单模式
+    function toggleAuthMode() {
+      isSignUpMode = !isSignUpMode;
+      document.getElementById('auth-title').innerText = isSignUpMode ? '注册新教师账号' : '教师账号登录';
+      document.getElementById('auth-btn').innerText = isSignUpMode ? '注 册' : '登 录';
+      document.getElementById('auth-toggle-text').innerText = isSignUpMode ? '已有账号？点击返回登录' : '没有账号？点击注册新教师账号';
+    }
+
+    // 处理登录和注册
+    async function handleAuth() {
+      const email = document.getElementById('auth-email').value.trim();
+      const password = document.getElementById('auth-password').value.trim();
+
+      if (!email || !password) return alert('请输入邮箱和密码！');
+
+      if (isSignUpMode) {
+        const { data, error } = await supabaseClient.auth.signUp({ email, password });
+        if (error) {
+          alert('注册失败: ' + error.message);
+        } else {
+          alert('注册成功！如果开启了邮箱验证，请查收邮件；或尝试直接登录。');
+          toggleAuthMode();
+        }
+      } else {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) {
+          alert('登录失败: ' + error.message);
+        } else {
+          onUserLoggedIn(data.user);
+        }
+      }
+    }
+
+    // 登录成功后的UI渲染
+    function onUserLoggedIn(user) {
+      currentTeacher = user;
+      document.getElementById('current-user-email').innerText = user.email;
+      document.getElementById('auth-section').classList.add('hidden');
+      document.getElementById('app-section').classList.remove('hidden');
+      fetchStudents();
+    }
+
+    // 退出登录
+    async function handleLogout() {
+      await supabaseClient.auth.signOut();
+      currentTeacher = null;
+      document.getElementById('app-section').classList.add('hidden');
+      document.getElementById('auth-section').classList.remove('hidden');
+    }
+
+    // 切换排序
     function changeSort(field) {
       if (currentSortField === field) {
-        isAscending = !isAscending; // 再次点击切换升序/降序
+        isAscending = !isAscending;
       } else {
         currentSortField = field;
-        isAscending = field === 'student_id'; // 学号默认升序，积分默认降序
+        isAscending = field === 'student_id';
       }
       fetchStudents();
     }
 
-    // 获取数据并渲染
+    // 获取数据（只查询属于当前教师的数据）
     async function fetchStudents() {
+      if (!currentTeacher) return;
+
       const { data, error } = await supabaseClient
         .from('students')
         .select('*')
+        .eq('teacher_id', currentTeacher.id)
         .order(currentSortField, { ascending: isAscending });
 
       if (error) return alert('读取数据失败: ' + error.message);
 
       const tbody = document.getElementById('student-table-body');
       tbody.innerHTML = '';
+
+      if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#64748b;">你名下暂无学生数据，请在上方添加！</td></tr>';
+        return;
+      }
 
       data.forEach(student => {
         const score = student.score ?? 0;
@@ -149,7 +251,7 @@
       });
     }
 
-    // 新增学生 (默认积分 score = 0)
+    // 添加学生（自动关联当前登录教师的 teacher_id）
     async function addStudent() {
       const student_id = document.getElementById('student_id').value.trim();
       const name = document.getElementById('name').value.trim();
@@ -158,7 +260,12 @@
 
       const { error } = await supabaseClient
         .from('students')
-        .insert([{ student_id, name, score: 0 }]);
+        .insert([{ 
+          student_id, 
+          name, 
+          score: 0,
+          teacher_id: currentTeacher.id
+        }]);
 
       if (error) {
         alert('添加失败: ' + error.message);
@@ -169,7 +276,7 @@
       }
     }
 
-    // 更新积分（支持加分和减分，允许负数）
+    // 更新积分
     async function updateScore(id, currentScore, change) {
       const newScore = currentScore + change;
       const { error } = await supabaseClient
@@ -181,7 +288,7 @@
       else fetchStudents();
     }
 
-    // 自定义加减分
+    // 自定义积分操作
     async function applyCustomScore(id, currentScore) {
       const input = document.getElementById(`custom-${id}`);
       const change = Number(input.value);
